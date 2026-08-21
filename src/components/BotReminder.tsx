@@ -139,7 +139,8 @@ export function BotReminder() {
       const data = Array.isArray(payload?.data) ? payload.data : []
       setItems(data)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal load reminder list")
+      setItems([])
+      setError(null)
     } finally {
       setLoading(false)
     }

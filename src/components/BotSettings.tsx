@@ -114,11 +114,12 @@ export function BotSettings() {
         unknownCommandInGroup: loaded.unknownCommandInGroup !== false,
       })
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal dapatkan bot settings")
+      setSettings(DEFAULT_SETTINGS)
+      setError(null)
     } finally {
       setLoading(false)
     }
-  }, [requestWithFallback])
+  }, [normalizeGroupList, requestWithFallback])
 
   useEffect(() => {
     void fetchSettings()

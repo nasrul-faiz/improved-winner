@@ -77,7 +77,21 @@ export function BotProfile() {
           lastError = err instanceof Error ? err.message : 'Failed to fetch bot status'
         }
       }
-      setError(lastError)
+
+      setState({
+        enabled: false,
+        status: 'disabled',
+        qr: null,
+        pairingMethod: null,
+        pairingPhoneNumber: null,
+        connectedPhoneNumber: null,
+        displayName: null,
+        profileImageUrl: null,
+        pairingCode: null,
+        updatedAt: null,
+        lastError,
+      })
+      setError(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch bot status'
       setError(message)

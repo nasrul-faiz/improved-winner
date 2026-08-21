@@ -97,7 +97,17 @@ export function BotDashboard() {
         }
       }
 
-      setError(lastError)
+      setState({
+        enabled: false,
+        status: 'disabled',
+        qr: null,
+        pairingMethod: null,
+        pairingPhoneNumber: null,
+        pairingCode: null,
+        updatedAt: null,
+        lastError: lastError,
+      })
+      setError(null)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch bot status'
       setError(message)
