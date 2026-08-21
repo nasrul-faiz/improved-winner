@@ -3,6 +3,7 @@ import { MessageCircle, QrCode, RefreshCw, ShieldAlert, Wifi } from 'lucide-reac
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useRegisterRefresh } from '@/contexts/RefreshContext'
+import { resolveEffectivePairingMethod, sanitizePhoneNumber } from '@/components/bot-dashboard-pairing'
 
 type BotStatus = 'disabled' | 'starting' | 'qr' | 'pairing-phone' | 'pairing-code' | 'connected' | 'closed' | 'reconnecting' | 'logged-out' | 'error'
 
@@ -134,14 +135,24 @@ export function BotDashboard() {
   const isPhonePairing = state?.pairingMethod === 'phone' || state?.status === 'pairing-phone' || state?.status === 'pairing-code'
   const isConnected = state?.status === 'connected'
   const isPairingInProgress = state?.status === 'starting' || state?.status === 'qr' || state?.status === 'pairing-phone' || state?.status === 'pairing-code' || state?.status === 'reconnecting'
-  const activePairingMethod = state?.pairingMethod ?? pairingMethod
+  const activePairingMethod = resolveEffectivePairingMethod(state, pairingMethod)
   const isAlternatePairingMethod = (method: 'qr' | 'phone') => isConnected && activePairingMethod !== method
   const isPairingRequestLocked = applyingPairing || isPairingInProgress || isConnected
 
   const applyPairingSelection = useCallback(async () => {
-    if (pairingMethod === 'phone' && !phoneNumber.trim()) {
-      setPairingMessage('Sila masukkan nombor telefon sebelum teruskan.')
-      return
+    const selectedMethod = resolveEffectivePairingMethod(state, pairingMethod)
+
+    if (selectedMethod === 'phone') {
+      const sanitizedPhone = sanitizePhoneNumber(phoneNumber)
+      if (!sanitizedPhone) {
+        setPairingMessage('Sila masukkan nombor telefon sebelum teruskan.')
+        return
+      }
+
+      setPhoneNumber(sanitizedPhone)
+      if (state?.pairingPhoneNumber !== sanitizedPhone) {
+        setPairingMessage('Mengemaskini nombor telefon untuk pairing…')
+      }
     }
 
     try {
@@ -156,8 +167,8 @@ export function BotDashboard() {
           ...(token ? { 'x-bot-dashboard-token': token } : {}),
         },
         body: JSON.stringify({
-          pairingMethod,
-          phoneNumber: phoneNumber.trim(),
+          pairingMethod: selectedMethod,
+          phoneNumber: sanitizePhoneNumber(phoneNumber),
         }),
       })
 
@@ -170,17 +181,18 @@ export function BotDashboard() {
         throw new Error(payload?.error || 'Gagal apply pilihan pairing')
       }
 
-      setPairingMessage(pairingMethod === 'phone' ? 'Kaedah phone number disimpan.' : 'Kaedah QR disimpan.')
+      setPairingMessage(selectedMethod === 'phone' ? 'Kaedah phone number disimpan.' : 'Kaedah QR disimpan.')
       await fetchStatus()
     } catch (err) {
       setPairingMessage(err instanceof Error ? err.message : 'Gagal apply pilihan pairing')
     } finally {
       setApplyingPairing(false)
     }
-  }, [fetchStatus, pairingMethod, phoneNumber, token])
+  }, [fetchStatus, pairingMethod, phoneNumber, state, token])
 
   useEffect(() => {
-    const isQrMode = state?.status === 'qr' && Boolean(state?.qr) && !isPhonePairing
+    const effectiveMethod = resolveEffectivePairingMethod(state, pairingMethod)
+    const isQrMode = effectiveMethod === 'qr' && state?.status === 'qr' && Boolean(state?.qr)
 
     if (!isQrMode) {
       qrValueRef.current = null
@@ -206,7 +218,7 @@ export function BotDashboard() {
     return () => {
       window.clearInterval(countdownTimer)
     }
-  }, [state?.status, state?.qr, isPhonePairing])
+  }, [state?.status, state?.qr, pairingMethod, state, isPhonePairing])
 
   return (
     <div className="flex flex-1 min-h-0 flex-col p-3 md:p-4 lg:p-5">
@@ -252,7 +264,7 @@ export function BotDashboard() {
         </div>
 
         <div className="mt-4 space-y-4">
-          <div className={`${pairingMethod === 'qr' ? '' : 'hidden'} rounded-2xl border border-dashed border-border bg-muted/20 p-4`}>
+          <div className={`${activePairingMethod === 'qr' ? '' : 'hidden'} rounded-2xl border border-dashed border-border bg-muted/20 p-4`}>
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading bot status...</p>
             ) : error ? (
@@ -288,7 +300,7 @@ export function BotDashboard() {
             )}
           </div>
 
-          <div className={`${pairingMethod === 'phone' ? '' : 'hidden'} rounded-2xl border border-border bg-muted/20 p-4`}>
+          <div className={`${activePairingMethod === 'phone' ? '' : 'hidden'} rounded-2xl border border-border bg-muted/20 p-4`}>
             <div className="space-y-3">
               <div className="space-y-1">
                 <label htmlFor="pairingPhone" className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Phone Number</label>
